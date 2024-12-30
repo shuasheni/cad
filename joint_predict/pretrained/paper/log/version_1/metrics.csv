@@ -1,0 +1,2 @@
+eval_test_loss,eval_test_top_1,eval_test_top_1_holes,eval_test_top_1_no_holes,eval_test_iou,eval_test_accuracy,epoch,step
+11.162789344787598,0.7964693903923035,0.802135705947876,0.7694610953330994,0.11569305509328842,0.8920015692710876,0,0

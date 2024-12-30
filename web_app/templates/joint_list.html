@@ -1,0 +1,279 @@
+{% include 'header.html' %}
+
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">修改装配体信息</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="/joint_update" >
+                <div class="modal-body">
+
+                    <input name="joint_id" id="jointId" value="" style="display: none">
+                    <div class="form-group">
+                        <label for="jointName">装配体名称</label>
+                        <input type="text" class="form-control" name="joint_name" id="jointName" placeholder="Enter new name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="jointValue">预测值</label>
+                        <input type="text" class="form-control" name="joint_value" id="jointValue">
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存更改</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteb()">删除零件</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="outputModalLabel">确认删除这个装配体吗？</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-danger" onclick="deleteJoint()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="outputModal" tabindex="-1" role="dialog" aria-labelledby="outputModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="outputModalLabel">文件导出</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form style="margin: auto;width: 200px">
+                    <div style="width: 200px">
+                        <a id="stepOutput" href="">
+                            <button type="button" class="btn btn-primary" style="width: 200px">导出step文件</button>
+                        </a>
+                    </div>
+                    <div style="margin-top: 10px;width: 200px">
+                        <a id="jsonOutput" href="">
+                            <button type="button" class="btn btn-primary" style="width: 200px">导出json文件</button>
+                        </a>
+                    </div>
+                    <!-- 可以在这里添加更多表单字段 -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="container  content-container">
+    <div class="container" style="margin-top: 10px;padding: 25px">
+        <form action="/joint_list" method="post">
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="body_id">装配体id</label>
+                    <input type="text" class="form-control" name="joint_id" id="joint_id">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="name">装配体名称</label>
+                    <input type="text" class="form-control" name="name" id="name">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="body_id">组成零件id</label>
+                    <input type="text" class="form-control" name="body_id" id="body_id">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="type">关节类型</label>
+                    <input type="text" class="form-control" name="type" id="type">
+                </div>
+                <div class="form-group col-md-2">
+                    <label for="minValue">预测值from</label>
+                    <input type="text" class="form-control" name="minValue" id="minValue">
+                </div>
+                <div class="form-group col-md-2">
+                    <label for="maxValue">to</label>
+                    <input type="text" class="form-control" name="maxValue" id="maxValue">
+                </div>
+
+                <div class="form-group col-md-3">
+                    <label for="page_size">显示数量</label>
+                    <select id="page_size" name="page_size" class="form-control">
+                        <option selected>40</option>
+                        <option>100</option>
+                        <option>200</option>
+                    </select>
+
+                </div>
+                <div class="form-group col-md-1">
+                    <label>操作</label>
+                    <button type="submit" class="btn btn-primary form-control">查询</button>
+                </div>
+
+            </div>
+
+        </form>
+    </div>
+    <div class="container">
+        <div class="row">
+            {% for row in table_data %}
+                <div class="col-sm-3">
+                    <div class="card" style="margin: 10px;" id="img-card-{{ loop.index0 }}">
+                        <img src="" class="card-img-top" alt="{{ row[0] }}"
+                             onclick="openPage('/body_view?body_id={{ row[0] }}')">
+                        <div class="card-buttons">
+                            <button class="btn btn-sm btn-outline-primary" onclick="openEditModal({{ loop.index0 }})">
+                                编辑
+                            </button>
+
+                            <button class="btn btn-sm btn-outline-success" onclick="openOutputModal('{{ row[0] }}')">
+                                导出
+                            </button>
+
+                            <a href="/joint_predict?joint_id={{ row[0] }}">
+                                <button class="btn btn-sm btn-outline-danger">装配</button>
+                            </a>
+                        </div>
+                        <div class="card-info">
+                            <p>id: {{ row[0] }}</p>
+                            <p>名称: {{ row[1] }}</p>
+                            <p>关节类型: {{ row[2] }}</p>
+                            <p>零件1: {{ row[3] }}</p>
+                            <p>零件2: {{ row[4] }}</p>
+                            <p>预测值: {{ row[5] }}</p>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">{{ row[1] }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <nav aria-label="Page navigation example" id="pageNav">
+          <ul class="pagination">
+                {% if page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('joint_list', page = page - 1) }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link" aria-hidden="true">&laquo;</span>
+                    </li>
+                {% endif %}
+
+                {% for p in range(min_page, max_page) %}
+                    <li class="page-item {% if p == page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('joint_list', page = p) }}">{{ p }}</a>
+                    </li>
+                {% endfor %}
+
+                {% if max_page < page_num %}
+                    <li class="page-item disabled">
+                        <a class="page-link">...</a>
+                    </li>
+
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('joint_list', page = page_num) }}">{{ page_num }}</a>
+                    </li>
+                {% endif %}
+
+                {% if max_page < page_num %}
+                    <li class="page-item {{ page + 1 }}">
+                        <a class="page-link" href="{{ url_for('joint_list', page = page + 1) }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link" aria-hidden="true">&raquo;</span>
+                    </li>
+                {% endif %}
+          </ul>
+        </nav>
+    </div>
+
+
+</div>
+<script>
+
+    l1 = document.getElementById("main_page");
+    l2 = document.getElementById("joint_page");
+    l3 = document.getElementById("body_page");
+    l2.classList.add("active")
+    l3.classList.remove("active")
+    l1.classList.remove("active")
+    var del_jointId = ''
+
+    loadImages()
+
+    function loadImages() {
+        const datas = {{ table_data | tojson }};
+        console.log(datas)
+
+        datas.forEach((row, idx) => {
+            const imgElement = document.getElementById('img-card-' + idx).getElementsByTagName('img')[0];
+            // 动态设置图片的src
+            imgElement.src = `/get_image/${row[0]}.png`;
+        });
+    }
+
+    function deleteb() {
+        $('#deleteModal').modal('show');
+
+    }
+
+    function deleteJoint() {
+        var xmlHttpRequest = new XMLHttpRequest();
+        xmlHttpRequest.open('GET', '/body_delete?body_id=' + del_jointId);
+        xmlHttpRequest.send();//发送请求
+        xmlHttpRequest.onreadystatechange = function () {
+            //此处判断 4表示浏览器已经完全接受到Ajax请求得到的响应， 200表示这是一个正确的Http请求，没有错误
+            if (xmlHttpRequest.readyState == 4 && xmlHttpRequest.status == 200) {
+                alert(xmlHttpRequest.responseText)
+                window.location.href = 'body_list';
+            }
+        }
+    }
+
+    function openEditModal(idx) {
+        $('#editModal').modal('show');
+
+        var table_data = {{ table_data| tojson }};
+        console.log(table_data)
+        del_jointId = table_data[idx][0];
+        document.getElementById('jointId').value = table_data[idx][0]
+        document.getElementById('jointName').value = table_data[idx][1]
+        document.getElementById('jointValue').value = table_data[idx][5]
+    }
+
+    function openOutputModal(id) {
+        document.getElementById('stepOutput').href = "/download_j_step?joint_id=" + id
+        document.getElementById('jsonOutput').href = "/download_j_json?joint_id=" + id
+        $('#outputModal').modal('show');
+    }
+</script>
+{% include 'footer.html' %}

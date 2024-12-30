@@ -1,0 +1,20 @@
+name: env-cad
+channels:
+  - conda-forge
+  - defaults
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+dependencies:
+  - python=3.7
+  - pip
+  - scipy
+  - igl
+  - pip:
+      - trimesh
+      - pysdf
+      - scipy
+      - pymongo
+      - pymysql
+      - flask
+      - networkx
+      - matplotlib

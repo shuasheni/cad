@@ -1,0 +1,290 @@
+{% include 'header.html' %}
+<div class="mainContent">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src=https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <canvas id="renderCanvas" style="width: 100%"></canvas>
+
+    <script>
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        let allmesh = []
+        var pre_panel = ""
+        var advancedTexture1 = ""
+
+        var plainMat = "";
+        var redMat = "";
+
+
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+            const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 10, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+            const minimumWorld = new BABYLON.Vector3({{ min[0] }}, {{ min[1] }}, {{ min[2] }}); // 边界框的最小点
+            const maximumWorld = new BABYLON.Vector3({{ max[0] }}, {{ max[1] }}, {{ max[2] }});
+            {#const center = BABYLON.Vector3.Center(minimumWorld, maximumWorld);#}
+            {#const boundingBoxSize = maximumWorld.subtract(minimumWorld);#}
+            {#const radius = boundingBoxSize.length() / 2;#}
+            {#console.log(minimumWorld)#}
+            {#console.log(maximumWorld)#}
+            {#camera.setTarget(center);#}
+            {#camera.radius = radius * 4;#}
+            {#camera.beta = Math.PI / 4;#}
+
+            plainMat = new BABYLON.StandardMaterial("pmat", scene)
+            plainMat.backFaceCulling = false;
+            plainMat.twoSided = true;
+            redMat = new BABYLON.StandardMaterial("rmat", scene)
+            {#redMat.backFaceCulling = false;#}
+            {#redMat.twoSided = true;#}
+            redMat.diffuseColor = new BABYLON.Color3(1, 0, 0);
+
+            BABYLON.SceneLoader.ImportMesh("", "/static/", "{{ body_id }}.obj", scene, (meshes) => {
+
+                const boundingBox = meshes[0].getBoundingInfo().boundingBox;
+                const center = boundingBox.center;
+                const extendSize = boundingBox.extendSize;
+                camera.setTarget(center);
+                const distance = Math.max(extendSize.x, extendSize.y, extendSize.z) * 2; // 相机和物体的距离
+                camera.radius = distance;
+                camera.alpha = Math.PI / 4;  // 水平旋转角度
+                camera.beta = Math.PI / 4;   // 垂直旋转角度
+                {#console.log(meshes)#}
+                allmesh = meshes
+                {#console.log(allmesh)#}
+                var facess = {{ faces | tojson }};
+                console.log(facess)
+
+                for(let i = 0; i < meshes.length;i++){
+                    const mesh = meshes[i]
+                    mesh.actionManager = new BABYLON.ActionManager(scene);
+                    mesh.material = plainMat;
+                    mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
+                    console.log("模型被点击了！");
+                    // 在这里可以执行其他逻辑，例如改变颜色
+                    select_face(i, facess[i])
+                }));
+                }
+
+                var sv = new BABYLON.GUI.ScrollViewer();
+                sv.width = "220px";
+                sv.height = "100%";
+                sv.background = "rgba(0, 0, 0, 0.5)";
+                sv.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                sv.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+
+                advancedTexture.addControl(sv);
+
+                const leftPanel = new BABYLON.GUI.StackPanel();
+                leftPanel.paddingTop = "10px";
+                leftPanel.paddingBottom = "10px";
+                sv.addControl(leftPanel); // 将面板添加到UI层
+
+                // 添加多个按钮到左侧面板
+                for (let i = 0; i < facess.length; i++) {
+                    const button = BABYLON.GUI.Button.CreateSimpleButton("face" + i, i +": "+facess[i].face_type);
+                    button.width = "160px";
+                    button.height = "40px";
+                    button.color = "white";
+                    button.background = "gray";
+                    button.paddingTop = "15px";
+                    leftPanel.addControl(button); // 将按钮添加到面板
+
+                    button.onPointerClickObservable.add(() => {
+                        select_face(i, facess[i])
+                    });
+                }
+
+            });
+
+
+            var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI(
+              "myUI"
+            );
+            advancedTexture1 = advancedTexture
+            return scene;
+        };
+
+        const scene = createScene();
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+
+        var pre_select_idx = 0
+
+        function select_face(idx, ct){
+            {#console.log(allmesh)#}
+            console.log(ct)
+            const omesh = allmesh[pre_select_idx]
+            omesh.material = plainMat
+
+            const mesh = allmesh[idx]; // 获取第一个模型
+            mesh.material = redMat
+            pre_select_idx = idx
+
+            {#console.log(ct)#}
+            if(pre_panel !== "") {
+                advancedTexture1.removeControl(pre_panel)
+            }
+
+            var rect1 = new BABYLON.GUI.StackPanel();
+            rect1.width = "450px";
+            {#rect1.height = "500px";#}
+            rect1.cornerRadius = 20;
+            rect1.color = "rgba(255, 255, 255, 0.5)";
+            rect1.thickness = 4;
+            rect1.background = "rgba(0, 0, 0, 0.5)";
+            rect1.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+            rect1.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+            advancedTexture1.addControl(rect1);
+
+            const textBlock = new BABYLON.GUI.TextBlock();
+            textBlock.text = 'face'+idx+": "+ct.face_type;
+            textBlock.color = "white"; // 文本颜色
+            textBlock.fontSize = 24; // 字体大小
+            textBlock.height = "50px"
+            rect1.addControl(textBlock);
+
+            for(let i = 0; i<ct.params.length;i++){
+                const prm = ct.params[i]
+                const lineBlock = new BABYLON.GUI.TextBlock();
+                lineBlock.text = prm;
+                lineBlock.width = "400px";
+                lineBlock.color = "white"; // 文本颜色
+                lineBlock.fontSize = 16; // 字体大小
+                lineBlock.textWrapping = true;
+                lineBlock.resizeToFit = true
+                lineBlock.textHorizontalAlignment = "left"
+                rect1.addControl(lineBlock);
+            }
+
+            const comment = new BABYLON.GUI.TextBlock();
+            comment.text = "注释: "+ct.note;
+            comment.color = "white";
+            comment.width = "400px";
+            comment.fontSize = 16;
+            comment.textWrapping = true;
+            comment.resizeToFit = true
+            comment.textHorizontalAlignment = "left"
+            comment.paddingTop = "10px"
+            rect1.addControl(comment);
+
+            const inputText = new BABYLON.GUI.InputTextArea("noteInput", "Some initial text");
+            inputText.text = ct.note; // 初始文本为原注释文本
+            inputText.width = "400px";
+            inputText.autoStretchHeight = true;
+            inputText.color = "white";
+            inputText.fontSize = 16;
+            inputText.background = "gray";
+            inputText.isVisible = false;
+            rect1.addControl(inputText);
+
+            var buttonsPanel = new BABYLON.GUI.StackPanel();
+            buttonsPanel.isVertical = false;
+            buttonsPanel.paddingTop = "20px"
+            buttonsPanel.paddingBottom = "20px"
+            buttonsPanel.width = "400px";
+            buttonsPanel.height = "70px";
+            rect1.addControl(buttonsPanel);
+
+            const showPointButton = BABYLON.GUI.Button.CreateSimpleButton("showPointButton", "显示控制点");
+            showPointButton.width = "280px";
+            showPointButton.height = "30px";
+            showPointButton.color = "white";
+            showPointButton.background = "gray";
+            showPointButton.paddingRight = "160px"
+            if(ct.face_type !== "B样条曲面") {
+
+                showPointButton.isVisible = false;
+            } else {
+                showPointButton.onPointerClickObservable.add(() => {
+
+            });
+            }
+            buttonsPanel.addControl(showPointButton);
+
+
+
+            const editButton = BABYLON.GUI.Button.CreateSimpleButton("editBtn", "编辑注释");
+            editButton.width = "120px";
+            editButton.height = "30px";
+            editButton.color = "white";
+            editButton.background = "green";
+            buttonsPanel.addControl(editButton);
+
+            {#const editButton2 = BABYLON.GUI.Button.CreateSimpleButton("editBtn", "编辑特征");#}
+            {#editButton2.width = "220px";#}
+            {#editButton2.height = "30px";#}
+            {#editButton2.color = "white";#}
+            {#editButton2.background = "blue";#}
+            {#editButton2.paddingLeft = "100px"#}
+            {#buttonsPanel.addControl(editButton2);#}
+
+            const saveButton = BABYLON.GUI.Button.CreateSimpleButton("saveBtn", "保存注释");
+            saveButton.width = "120px";
+            saveButton.height = "30px";
+            saveButton.color = "white";
+            saveButton.background = "blue";
+            saveButton.isVisible = false;
+            buttonsPanel.addControl(saveButton);
+
+
+            editButton.onPointerClickObservable.add(() => {
+                comment.isVisible = false;
+                editButton.isVisible = false;
+                inputText.isVisible = true;
+                saveButton.isVisible = true;
+
+            });
+
+            saveButton.onPointerClickObservable.add(() => {
+                comment.isVisible = true;
+                editButton.isVisible = true;
+                inputText.isVisible = false;
+                saveButton.isVisible = false;
+                ct.note = inputText.text;
+                comment.text = "注释: "+ct.note;
+
+                const face_info = JSON.stringify(ct);
+                const formData = `id={{ body_id }}&index=`+idx+`&face=${encodeURIComponent(face_info)}`;
+
+                fetch('/update_step_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData // 发送数据
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('POST Response from Flask:', data);
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+            });
+
+
+            rect1.linkWithMesh(mesh);
+            rect1.linkOffsetX = 400
+            rect1.linkOffsetY = -100
+
+            pre_panel = rect1
+
+        }
+
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+    </script>
+
+</div>
+{% include 'footer.html' %}
+

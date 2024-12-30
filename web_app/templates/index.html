@@ -1,0 +1,15 @@
+{% include 'header.html' %}
+<div class="container" style="margin:0 auto;padding:50px;width: 1300px;background-color: #f1f1f1;height: 100%">
+    <h1>{{ session["username"] }}, 欢迎来到三维CAD管理平台</h1>
+
+</div>
+<script>
+    l1 = document.getElementById("main_page");
+    l2 = document.getElementById("joint_page");
+    l3 = document.getElementById("body_page");
+    l1.classList.add("active")
+    l2.classList.remove("active")
+    l3.classList.remove("active")
+</script>
+{% include 'footer.html' %}
+

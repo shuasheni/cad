@@ -1,0 +1,175 @@
+{% include 'header.html' %}
+
+
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="outputModalLabel">确认更新装配体为选择的装配方案吗？</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+        <div class="modal-body">
+            <p>预测值、接头类型会自动更新</p>
+        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+        <a href="/update_joint_file">
+            <button type="button" class="btn btn-danger">更新</button>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<div style="display: flex;margin:20px auto 0;">
+    <div style="border: green 3px solid;width: 600px;margin-right: 10px">
+        <div class="row" style="margin-top: 20px">
+
+            <div class="col-sm-1"></div>
+
+            <div class="col-sm-5">
+                <div class="card" style="margin: 10px;" >
+                    <img src="/get_image/{{body1_id}}.png" class="card-img-top" alt="{{ body1_id }}" onclick="openPage('/body_view?body_id={{body1[0]}}')">
+                    <div class="card-info">
+                        <p>id: {{ body1[0] }}</p>
+                        <p>名称: {{ body1[1] }}</p>
+                        <p>面数量: {{ body1[2] }}</p>
+                        <p>边数量: {{ body1[3] }}</p>
+
+                        {% for tag in body1[4] %}
+                            <a href="#" class="badge badge-secondary" style="margin-left: 5px">{{ tag }}</a>
+                        {% endfor %}
+
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ body1[1] }}</p>
+                    </div>
+                </div>
+           </div>
+
+            <div class="col-sm-5">
+                <div class="card" style="margin: 10px;">
+                    <img src="/get_image/{{body2_id}}.png" class="card-img-top" alt="{{ body2_id }}" onclick="openPage('/body_view?body_id={{body2[0]}}')">
+                    <div class="card-info">
+                        <p>id: {{ body2[0] }}</p>
+                        <p>名称: {{ body2[1] }}</p>
+                        <p>面数量: {{ body2[2] }}</p>
+                        <p>边数量: {{ body2[3] }}</p>
+
+                        {% for tag in body2[4] %}
+                            <a href="#" class="badge badge-secondary" style="margin-left: 5px">{{ tag }}</a>
+                        {% endfor %}
+
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ body2[1] }}</p>
+                    </div>
+                </div>
+           </div>
+
+                <div class="col-sm-1"></div>
+        </div>
+
+        <div class="container mt-4">
+        <!-- 表单开始 -->
+        <form action="/joint_predict" method="get">
+            <input name="joint_id" value="{{ joint_id }}" style="display: none">
+
+            <div class="row mb-3">
+                <!-- 第一行：下拉选框和按钮，占满整行宽度 -->
+                <div class="col-12 col-md-9">
+                    <select class="form-control" name="joint_n" id="selectOptionsJ" >
+                        {% for row in joints_data %}
+                        <option value="{{ loop.index0 }}">top-{{ loop.index0 }}:
+                            ground truth joint {{ loop.index0 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3" >
+                    <button type="submit" class="btn btn-primary w-100">查看</button>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <!-- 第一行：下拉选框和按钮，占满整行宽度 -->
+                <div class="col-12 col-md-9">
+                    <select class="form-control" name="n" id="selectOptions" >
+                        {% for row in prediction_data %}
+                        <option value="{{ loop.index0 }}">top-{{ loop.index0 }}:
+                            {{row["body_one"]["type"]}}{{row["body_one"]["index"]}}-{{row["body_two"]["type"]}}{{row["body_two"]["index"]}} value={{row["value"]}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3" >
+                    <button type="submit" class="btn btn-primary w-100">查看</button>
+                </div>
+            </div>
+
+            <div class="row" style="padding:0 20px">
+                零件1：{{ prediction_data[predict_n]["body_one"]["type"]}} {{ prediction_data[predict_n]["body_one"]["index"]}}
+{#                {{ faces1[prediction_data[predict_n]["body_one"]["index"]]["face_type"] }}#}
+            </div>
+
+            <div class="row" style="padding:10px 20px 20px">
+                零件2：{{ prediction_data[predict_n]["body_two"]["type"]}} {{ prediction_data[predict_n]["body_two"]["index"]}}
+{#                {{ faces2[prediction_data[predict_n]["body_two"]["index"]]["face_type"] }}#}
+            </div>
+
+
+            <div class="row" style="padding:10px 20px 20px">
+                Simples IoU：{{ iou }}
+            </div>
+
+            <div class="row" style="padding:10px 20px 20px">
+                Chamfer Distance：{{ cd }}
+            </div>
+
+
+            <!-- 第二行：两个按钮 -->
+            <div class="row">
+                <div class="col-12 col-md-6">
+                    <button type="button" class="btn btn-secondary w-100" onclick="deleteb()">更新装配方案</button>
+                </div>
+                <div class="col-12 col-md-6">
+                    <a href="/download_joint_step?body1_id={{body1_id}}&body2_id={{body2_id}}&n={{ predict_n }}">
+                        <button type="button" class="btn btn-success w-100">导出组合模型</button>
+                    </a>
+
+                </div>
+            </div>
+        </form>
+        <!-- 表单结束 -->
+    </div>
+    </div>
+<script>
+
+    var selectElement = document.getElementById('selectOptions');
+    selectElement.value = {{predict_n}};
+
+    var selectJElement = document.getElementById('selectOptionsJ');
+    selectJElement.value = {{joint_n}};
+
+
+
+    function openPage(u) {
+        window.open(u, '_blank', '');
+    }
+
+
+    function deleteb(){
+        $('#deleteModal').modal('show');
+
+    }
+
+</script>
+
+    {% include 'predict_exist_joint.html' %}
+
+    {% include 'predict_new_joint.html' %}
+</div>
+
+{% include 'footer.html' %}
+
