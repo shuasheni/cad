@@ -4,7 +4,7 @@ import sys
 import json
 from pathlib import Path
 
-from cad.step_to_png import step2png
+from cad.cad_to_png import generate_body_png
 
 
 data_dir = 'C:\\Users\\40896\\Desktop\\data\\joint'
@@ -18,7 +18,7 @@ def connect():
     database: 数据库名称
     """
     # 获取数据库连接对象
-    db = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='123456', database='predict', charset='utf8mb4')
+    db = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='123456', database='cadtest', charset='utf8mb4')
     # 使用 cursor() 方法创建一个游标对象 cursor
     cursor = db.cursor()
 
@@ -148,6 +148,39 @@ def update_joint(db=None, cursor=None, id=None, name=None, value=None):
     cursor.execute(sql)
     db.commit()
 
+def select_model(db=None,cursor=None, model_id = None, name = None, page_size = 50, page = 0, group=None):
+    cursor.execute("SELECT COUNT(*) FROM model")
+    total_count = cursor.fetchone()[0]
+    page_num = (total_count + page_size - 1) // page_size
+
+    sql = f"select model_id,model_name,group_name from model NATURAL JOIN group_table LIMIT {page_size} OFFSET {page*page_size};"
+
+    if model_id is not None:
+        sql = f"select model_id,model_name,group_name from model NATURAL JOIN groups where model_id = '{model_id}';"
+        page_num = 1
+    elif name is not None:
+        sql = f"select model_id,model_name,group_name from model NATURAL JOIN groups where model_name = '{name}';"
+        page_num = 1
+    elif group is not None:
+        sql = f"select model_id,model_name,group_name from model NATURAL JOIN groups where group_name = '{group}';"
+        page_num = 1
+
+    print(sql)
+    cursor.execute(sql)
+    data = cursor.fetchall()
+    db.commit()
+    modified_result = [list(row) for row in data]
+    return modified_result, page_num
+
+def get_groups(db=None,cursor=None):
+    sql = f"select group_id, group_name from group_table;"
+    print(sql)
+    cursor.execute(sql)
+    data = cursor.fetchall()
+    db.commit()
+    modified_result = [list(row) for row in data]
+    return modified_result
+
 def close(db=None):
     db.close()
 
@@ -174,7 +207,7 @@ def insert_all_body(db=None,cursor=None):
             data_to_insert = (id, f"零件{id}", node_count, link_count, "")
             cursor.execute(sql_insert_query, data_to_insert)
             db.commit()
-            step2png(id)
+            generate_body_png(id)
 
 def insert_all_joint(db=None,cursor=None):
     sql_insert_query = """INSERT INTO joints (joint_id, name, joint_type, body1_id, body2_id, rate) VALUES (%s, %s, %s, %s, %s, %s)"""

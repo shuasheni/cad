@@ -1000,7 +1000,8 @@ class JointGraphDataset(JointBaseDataset):
         # Include ambiguous and hole labels
         # Adding separate labels to the label_matrix
         # We need to do this after all joints are marked out as labels
-        g1_ambiguous, g2_ambiguous = self.set_ambiguous_labels(g1, g2, label_matrix)
+        g1_ambiguous, g2_ambiguous = [], []
+        # g1_ambiguous, g2_ambiguous = self.set_ambiguous_labels(g1, g2, label_matrix)
         g1_holes, g2_holes = self.set_hole_labels(g1d, g2d, label_matrix, joint_data)
 
         # Only do further work if we have holes or ambiguous entities

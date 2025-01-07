@@ -138,23 +138,27 @@ def merge_shapes(shape1, shape2):
     return compound
 
 
-def output_joint_json(body1_id, body2_id, transform1, off, angle, p_n, prediction, path):
+def output_joint_json(body1_id, body2_id, face_count1, face_count2, transform1, off, angle, p_n, prediction, path):
     print(f"prediction: {prediction}")
     body1_pred = prediction["body_one"]
     entity_type1 = body1_pred["type"]
     index1 = body1_pred["index"]
+    if entity_type1 == "BRepEdge":
+        index1 -= face_count1
 
     body2_pred = prediction["body_two"]
     entity_type2 = body2_pred["type"]
     index2 = body2_pred["index"]
+    if entity_type2 == "BRepEdge":
+        index2 -= face_count2
 
     origin1 = util.vector_to_np(body1_pred["origin"])
     origin1[3] = 1.0
     direction1 = util.vector_to_np(body1_pred["direction"])
-    print(f"origin1: {origin1}")
-    print(f"transform1: {transform1}")
+    # print(f"origin1: {origin1}")
+    # print(f"transform1: {transform1}")
     origin1 = np.dot(transform1, origin1)
-    print(f"origin1t: {origin1}")
+    # print(f"origin1t: {origin1}")
     length = np.linalg.norm(direction1)
     direction1 = direction1 / length
     direction1 = np.dot(transform1, direction1)

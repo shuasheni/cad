@@ -3,14 +3,14 @@ from flask import *
 from cad.step_calc import output_step_transform, output_joint_json
 from cad.step_to_graphjson import process_one_file
 from cad.step_to_mesh import step_to_obj_with_normals
-from cad.step_to_png import step2png
+from cad.cad_to_png import generate_body_png, generate_joint_png
 from predict_joint import predict_new_joint, predict_exist_joint
 import shutil
 from cad.step_parse import step_parse, update_face
 import os
 
 from db.db import connect, select_joint, select_body, delete_joint, delete_body, insert_body, authenticate_user, \
-    update_body, update_joint, insert_joints
+    update_body, update_joint, insert_joints, select_model, get_groups
 
 app = Flask(__name__, template_folder='templates')
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -163,6 +163,36 @@ def body_list():
     return render_template('body_list.html', tt="零件列表", session=session, table_data=data,
                         page=page, page_num=page_num, min_page = min_page, max_page = max_page)
 
+@app.route('/model_list', methods=["POST", "GET"])
+def model_list():
+    model_id = None
+    name = None
+    group = None
+    page_size = 40
+    page = 0
+    if request.method == "POST":
+        model_id = request.form.get("model_id")
+        name = request.form.get("name")
+        group = request.form.get("group")
+        page_size = int(request.form.get("page_size"))
+        if model_id == '':
+            model_id = None
+        if name == '':
+            name = None
+        if group == '' or group is None:
+            group = None
+
+    pg = request.args.get("page")
+    if pg is not None:
+        page = int(pg) - 1
+    data,page_num = select_model(db, cursor, model_id, name, page_size, page, group)
+    groups = get_groups(db, cursor)
+    page = page + 1
+    min_page = max(page - 10, 1)
+    max_page = min(min_page + 20, page_num + 1)
+    return render_template('model_list.html', tt="特征匹配模型列表", session=session, table_data=data,
+                        page=page, page_num=page_num, min_page = min_page, max_page = max_page, groups=groups)
+
 @app.route('/joint_delete')
 def joint_delete():
     joint_id = request.args.get("joint_id")
@@ -195,7 +225,13 @@ def body_view():
 
     fn = f"C:\\Users\\40896\\Desktop\\data\\joint\\{body_id}.obj"
     shutil.copy(fn, f"static\\{body_id}.obj")
-    return render_template('body_view.html', tt="零部件查看", session=session,
+
+    body, _ = select_body(db, cursor, body_id)
+
+    body[0][4] = body[0][4].split(',')
+
+
+    return render_template('body_view.html', tt="零部件查看", session=session, body=body[0],
                            faces=faces, body_id=body_id, max=[maxx, maxy, maxz], min=[minx, miny, minz])
 
 @app.route('/update_step_data', methods=['POST'])
@@ -221,7 +257,7 @@ def upload():
             ofn = f"C:\\Users\\40896\\Desktop\\data\\joint\\{body_id}.obj"
             file.save(fn)
             step_to_obj_with_normals(fn, ofn)
-            step2png(body_id)
+            generate_body_png(body_id)
             face_num, edge_num = process_one_file(fn, body_id, f"C:\\Users\\40896\\Desktop\\data\\joint")
             insert_body(db, cursor, body_id, body_name, face_num, edge_num, tags)
             return redirect(url_for('body_list'))
@@ -239,8 +275,14 @@ def joint_save():
         predict_n = request.form.get("predict_n")
 
         joint_path = f'C:\\Users\\40896\\Desktop\\data\\ds\\{body1_id}_{body2_id}_{predict_n}.json'
-        destination_path = f'C:\\Users\\40896\\Desktop\\data\\joint\\{joint_id}.json'
-        shutil.move(joint_path, destination_path)
+        step_path = f'C:\\Users\\40896\\Desktop\\data\\ds\\{body1_id}_{body2_id}_{predict_n}.step'
+        png_path = f'C:\\Users\\40896\\Desktop\\data\\ds\\{body1_id}_{body2_id}_{predict_n}.png'
+        djoint_path = f'C:\\Users\\40896\\Desktop\\data\\joint\\{joint_id}.json'
+        dstep_path = f'C:\\Users\\40896\\Desktop\\data\\joint\\{joint_id}.step'
+        dpng_path = f'C:\\Users\\40896\\Desktop\\data\\joint\\{joint_id}.png'
+        shutil.move(joint_path, djoint_path)
+        shutil.move(step_path, dstep_path)
+        shutil.move(png_path, dpng_path)
 
         insert_joints(db,cursor,joint_id,joint_name,"save",body1_id,body2_id,1.0)
         return redirect(url_for('joint_list'))
@@ -335,7 +377,7 @@ def predict_view():
     f1, e1 = step_parse(body1_id)
     f2, e2 = step_parse(body2_id)
 
-    prediction_data, t2, x, offset_limit, prediction = predict_new_joint(body1_id, body2_id, n)
+    prediction_data, t2, x, offset_limit, prediction, fc1, fc2 = predict_new_joint(body1_id, body2_id, n)
 
     offset = x[0] * offset_limit
     if len(x) == 2:
@@ -347,7 +389,8 @@ def predict_view():
     step_path = f'C:\\Users\\40896\\Desktop\\data\\ds\\{body1_id}_{body2_id}_{n}.step'
 
     output_step_transform(body1_id, body2_id, t2, step_path)
-    output_joint_json(body1_id, body2_id, t2, offset, rotation, n, prediction, path)
+    output_joint_json(body1_id, body2_id, fc1, fc2, t2, offset, rotation, n, prediction, path)
+    generate_joint_png(body1_id, body2_id, t2, n)
     return render_template('predict_view.html', tt="预测结果查看", session=session,faces1 = f1,faces2 = f2,
                            body1_id=body1_id, body2_id=body2_id, predict_n=n,body1=body1[0], body2=body2[0], prediction_data=prediction_data)
 
@@ -361,10 +404,16 @@ def download_joint_step():
 
     return send_file(file_path, as_attachment=True)
 
-@app.route("/download_joint")
-def download_joint():
+@app.route("/download_j_json")
+def download_j_json():
     joint_id = request.args.get("joint_id")
     file_path = f"C:\\Users\\40896\\Desktop\\data\\joint\\{joint_id}.json"
+    return send_file(file_path, as_attachment=True)
+
+@app.route("/download_j_step")
+def download_j_step():
+    joint_id = request.args.get("joint_id")
+    file_path = f"C:\\Users\\40896\\Desktop\\data\\joint\\{joint_id}.step"
     return send_file(file_path, as_attachment=True)
 
 
@@ -380,6 +429,7 @@ def download_obj():
     body_id = request.args.get("body_id")
     file_path = f"C:\\Users\\40896\\Desktop\\data\\joint\\{body_id}.obj"
     return send_file(file_path, as_attachment=True)
+
 
 if __name__ == '__main__':
     app.config['DEBUG'] = True

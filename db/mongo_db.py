@@ -37,3 +37,6 @@ def update_step_parse(body_id, faces, edges):
             print(f"No changes were made to the document with _id {body_id}.")
     else:
         print(f"No document found with _id {body_id}.")
+
+
+# result = collection.find_one({"_id": 'zhou1'})

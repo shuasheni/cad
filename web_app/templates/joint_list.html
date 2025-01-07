@@ -223,6 +223,8 @@
     l1 = document.getElementById("main_page");
     l2 = document.getElementById("joint_page");
     l3 = document.getElementById("body_page");
+    l4 = document.getElementById("model_page");
+    l4.classList.remove("active")
     l2.classList.add("active")
     l3.classList.remove("active")
     l1.classList.remove("active")
@@ -248,7 +250,7 @@
 
     function deleteJoint() {
         var xmlHttpRequest = new XMLHttpRequest();
-        xmlHttpRequest.open('GET', '/body_delete?body_id=' + del_jointId);
+        xmlHttpRequest.open('GET', '/joint_delete?joint_id=' + del_jointId);
         xmlHttpRequest.send();//发送请求
         xmlHttpRequest.onreadystatechange = function () {
             //此处判断 4表示浏览器已经完全接受到Ajax请求得到的响应， 200表示这是一个正确的Http请求，没有错误

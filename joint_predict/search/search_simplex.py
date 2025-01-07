@@ -26,6 +26,8 @@ class SearchSimplex(SearchBase):
             self.optimize_func = self.optimize_nm
         elif optimize_method == "Nelder-Mead-4":
             self.optimize_func = self.optimize_nm4
+        elif optimize_method == "Double-Annealing":
+            self.optimize_func = self.optimize_da
 
     def search(self, jps):
         super().search(jps)
@@ -168,8 +170,13 @@ class SearchSimplex(SearchBase):
             self.cache[prediction_index]["direction2"]
         )
 
-        bounds = scipy.optimize.Bounds([-1, -180], [1, 180])
+        bounds = scipy.optimize.Bounds([-1.2, -190], [1.2, 190])
         initial_guess = np.array([0, 0])
+        initial_simplex = np.array([
+                    [initial_guess[0] - 0.2, initial_guess[1] - 15],  # 初始猜测点
+                    [initial_guess[0] + 0.2, initial_guess[1]],  # 沿偏移方向增加步长
+                    [initial_guess[0], initial_guess[1] + 15]  # 沿旋转方向增加步长
+                ])
         # print("nm:")
         return scipy.optimize.minimize(
             self.cost_function,
@@ -183,7 +190,8 @@ class SearchSimplex(SearchBase):
                 'xatol': 1e-2,
                 'fatol': 1e-3,
                 "disp": False,
-                "maxiter": self.budget
+                "maxiter": self.budget,
+                "initial_simplex": initial_simplex
             }
         )
 
@@ -197,10 +205,6 @@ class SearchSimplex(SearchBase):
             self.cache[prediction_index]["origin2"],
             self.cache[prediction_index]["direction2"]
         )
-
-        # print(f"origin: {self.cache[prediction_index]['origin2']}")
-
-        # print("nm8:")
 
         if self.cache[prediction_index]["skip_rotation"]:
             print("skip_rotation!")
@@ -281,9 +285,9 @@ class SearchSimplex(SearchBase):
             self.cache[prediction_index]["direction2"]
         )
         if self.cache[prediction_index]["skip_rotation"]:
-            bounds = [(-0.001, 0.001)]
+            bounds = [(-1.2, 1.2)]
         else:
-            bounds = [(-0.001, 0.001), (0, 360)]
+            bounds = [[-1.2, 1.2], [-190, 190]]
 
         # print(f"da")
         result = dual_annealing(

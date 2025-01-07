@@ -1,8 +1,10 @@
 import json
+import time
 from pathlib import Path
 import meshplot as mp
 import numpy as np
 import torch
+from PIL import Image
 
 from joint_predict.joint.joint_environment import JointEnvironment
 from joint_predict.joint.new_prediction_set import NewPredictionSet
@@ -135,13 +137,11 @@ def predict_new_joint(g1_id, g2_id, n=0, imports=True):
     transform1, result,_,_ = search1.search_single(jps, n)
     off_limit = search1.cache[n]["offset_limit"]
 
-    # print(f"predictions: {jps.prediction_data['predictions']}")
     prediction = jps.prediction_data["predictions"][n]
 
     with open("templates/predict_new_joint.html", "w", encoding='utf-8') as f:
         f.write("<div style=\"width: 420px;\">\n")
         f.write(f"<div style=\"border: green 3px solid;height:444px\"> top-{n}预测结果\n")
-        # f.write(f"<div style=\"border: green 3px solid;height:444px\"> Nelder-Mead({end_time - start_time:.4f}s)\n")
         f.write(show_joint_pred(jps, transform1).to_html(imports=imports, html_frame=False))
         f.write("</div>\n")
         f.write("<div style=\"display: flex;width: 420px;margin-top: 10px\">\n")
@@ -155,7 +155,7 @@ def predict_new_joint(g1_id, g2_id, n=0, imports=True):
         f.write("</div>\n")
         f.close()
 
-    return jps.prediction_data["predictions"][:50], transform1, result.x, off_limit, prediction
+    return jps.prediction_data["predictions"][:50], transform1, result.x, off_limit, prediction, face_count1, face_count2
 
 
 def predict_exist_joint(joint_id, n=0, joint_n=0, sc=4096):
@@ -205,7 +205,7 @@ def predict_exist_joint(joint_id, n=0, joint_n=0, sc=4096):
         f.write("</div>\n")
         f.close()
 
-    prediction_data, p_transform,_,_,_ = predict_new_joint(g1_id, g2_id, n, False)
+    prediction_data, p_transform,_,_,_,_,_ = predict_new_joint(g1_id, g2_id, n, False)
 
     num_joints = len(jps.joint_data["joints"])
     gt_transforms = np.zeros((num_joints, 4, 4))
