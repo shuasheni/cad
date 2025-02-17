@@ -208,7 +208,7 @@ def joint_delete():
 def body_view():
     body_id = request.args.get("body_id")
     print(body_id)
-    faces, edges = step_parse(body_id)
+    faces, edges, features = step_parse(body_id)
 
     jn = f"C:\\Users\\40896\\Desktop\\data\\joint\\{body_id}.json"
 
@@ -232,7 +232,7 @@ def body_view():
 
 
     return render_template('body_view.html', tt="零部件查看", session=session, body=body[0],
-                           faces=faces, body_id=body_id, max=[maxx, maxy, maxz], min=[minx, miny, minz])
+                           faces=faces, features = features, body_id=body_id, max=[maxx, maxy, maxz], min=[minx, miny, minz])
 
 @app.route('/update_step_data', methods=['POST'])
 def get_data():
@@ -347,8 +347,8 @@ def joint_predict():
     body1[0][4] = body1[0][4].split(',')
     body2[0][4] = body2[0][4].split(',')
 
-    f1, e1 = step_parse(body1_id)
-    f2, e2 = step_parse(body2_id)
+    f1, e1, _ = step_parse(body1_id)
+    f2, e2, _ = step_parse(body2_id)
     # print(joints_data)
     # print(prediction_data)
 
@@ -374,8 +374,8 @@ def predict_view():
     body1[0][4] = body1[0][4].split(',')
     body2[0][4] = body2[0][4].split(',')
 
-    f1, e1 = step_parse(body1_id)
-    f2, e2 = step_parse(body2_id)
+    f1, e1, _ = step_parse(body1_id)
+    f2, e2, _ = step_parse(body2_id)
 
     prediction_data, t2, x, offset_limit, prediction, fc1, fc2 = predict_new_joint(body1_id, body2_id, n)
 

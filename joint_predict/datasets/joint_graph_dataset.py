@@ -595,12 +595,15 @@ class JointGraphDataset(JointBaseDataset):
         joint_file = self.root_dir / joint_file_name
         with open(joint_file, encoding="utf8") as f:
             joint_data = json.load(f)
+        holes = []
+        if "holes" in joint_data:
+            holes = joint_data["holes"]
         g1, g1d, face_count1, edge_count1, g1_json_file = self.load_graph_body(
-            joint_data["body_one"], joint_data["holes"])
+            joint_data["body_one"], holes)
         if g1 is None:
             return None
         g2, g2d, face_count2, edge_count2, g2_json_file = self.load_graph_body(
-            joint_data["body_two"], joint_data["holes"])
+            joint_data["body_two"], holes)
         if g2 is None:
             return None
         # Limit the maximum number of combined nodes
@@ -626,9 +629,7 @@ class JointGraphDataset(JointBaseDataset):
                 area_features1=g1.area,
                 area_features2=g2.area,
                 length_features1=g1.length,
-                length_features2=g2.length,
-                hole_length_features1 = g1.hole_length,
-                hole_length_features2 = g2.hole_length
+                length_features2=g2.length
             )
             # Throw out if we can't scale properly due to the masked surface area
             if not scale_good:

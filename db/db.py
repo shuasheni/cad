@@ -188,7 +188,7 @@ def insert_all_body(db=None,cursor=None):
     sql_insert_query = """INSERT INTO bodies (body_id,name,face_count,edge_count,tags) VALUES (%s, %s, %s, %s, %s)"""
     pattern = "*_*_*_[1-9].json"
     list = [f.name for f in Path(data_dir).glob(pattern)]
-    for name in list:
+    for name in list[:100]:
         graph_json_file = data_dir / name
         id = name.rstrip('.json')
 

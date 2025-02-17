@@ -316,7 +316,7 @@ class SearchSimplex(SearchBase):
                                                          len=self.cache[prediction_index]["offset_limit"],
                                                          name=f"noflip_{self.times}")
 
-        print(f"No. {self.times}: {x}, {result}")
+        # print(f"No. {self.times}: {x}, {result}")
         return result
 
     def get_transform_from_x(self, x, jps, prediction_index, flip, align_mat, origin2, direction2):

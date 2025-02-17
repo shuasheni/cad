@@ -6,6 +6,7 @@ from OCC.Core.GeomAbs import (GeomAbs_BSplineSurface,
                               GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane,
                               GeomAbs_Sphere, GeomAbs_Torus)
 
+from cad.feature_matching import match_features
 from db.mongo_db import insert_step_parse, select_step_parse, update_step_parse
 
 surface_types = [
@@ -47,9 +48,9 @@ def parse_entities(solid):
             "labels": [],
             "note": ""
         }
-
-        print(f"face_id: ({face_idx + 1})")
-        print(f"face_type: ({face_info['face_type']})")
+        #
+        # print(f"face_id: ({face_idx + 1})")
+        # print(f"face_type: ({face_info['face_type']})")
 
         if surf_type == GeomAbs_Plane:
             face_info["face_type"] = "平面"
@@ -153,18 +154,20 @@ def parse_entities(solid):
 
 
 def step_parse(body_id):
-    faces, edges = select_step_parse(body_id)
+    faces, edges, features = select_step_parse(body_id)
     if faces is None:
         fn = f"C:\\Users\\40896\\Desktop\\data\\joint\\{body_id}.step"
         solid = load_step(fn)[0]
         faces, edges = parse_entities(solid)
-        insert_step_parse(body_id, faces, edges)
-    return faces, edges
-
-def update_label_or_note(body_id, faces, edges):
-    update_step_parse(body_id, faces, edges)
+        features = match_features(solid)
+        insert_step_parse(body_id, faces, edges, features)
+    return faces, edges, features
 
 def update_face(body_id, index, face):
-    faces, edges = select_step_parse(body_id)
+    faces, edges, features = select_step_parse(body_id)
     faces[index] = face
-    update_step_parse(body_id, faces, edges)
+    update_step_parse(body_id, faces, edges, features)
+
+def update_features(body_id, features):
+    faces, edges, _ = select_step_parse(body_id)
+    update_step_parse(body_id, faces, edges, features)
