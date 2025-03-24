@@ -4,6 +4,7 @@ from cad.step_calc import output_step_transform, output_joint_json
 from cad.step_to_graphjson import process_one_file
 from cad.step_to_mesh import step_to_obj_with_normals
 from cad.cad_to_png import generate_body_png, generate_joint_png
+from db.mongo_db import select_step_matcher, update_step_matcher
 from predict_joint import predict_new_joint, predict_exist_joint
 import shutil
 from cad.step_parse import step_parse, update_face
@@ -19,6 +20,205 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = '12345678'
 db, cursor = connect()
 IMAGE_FOLDER = 'C:\\Users\\40896\\Desktop\\data\\joint'
+
+matcher1 = {
+    'name': '三段阶梯轴',
+    'nodes': [
+        (0, {"type": "any"}),
+        (1, {"type": "circle"}),  # 低圆柱面
+        (2, {"type": "plain"}),
+        (3, {"type": "circle"}),  # 高圆柱面
+        (4, {"type": "plain"}),
+        (5, {"type": "circle"}),  # 低圆柱面
+        (6, {"type": "any"}),
+    ],
+    'edges': [
+        (0, 1, {'type': 'circle'}),
+        (1, 2, {'type': 'circle'}),
+        (2, 3, {'type': 'circle'}),
+        (3, 4, {'type': 'circle'}),
+        (4, 5, {'type': 'circle'}),
+        (5, 6, {'type': 'circle'})
+    ],
+    'comparisons': [
+        {
+            'a': {
+                'n1': 1,
+                'param1': 'direction',
+                'param2': 'origin'
+            },
+            'b': {
+                'n1': 3,
+                'param1': 'direction',
+                'param2': 'origin'
+            },
+            'func': 'collinear'
+        },
+        {
+            'a': {
+                'n1': 1,
+                'param1': 'direction',
+                'param2': 'origin'
+            },
+            'b': {
+                'n1': 5,
+                'param1': 'direction',
+                'param2': 'origin'
+            },
+            'func': 'collinear'
+        },
+        {
+            'a': {
+                'n1': 1,
+                'param1': 'direction',
+                'param2': 'origin'
+            },
+            'b': {
+                'n1': 3,
+                'param1': 'direction',
+                'param2': 'origin'
+            },
+            'func': 'collinear'
+        },
+        {
+            'a': {
+                'n1': 1,
+                'param1': 'radius'
+            },
+            'b': {
+                'n1': 3,
+                'param1': 'radius'
+            },
+            'func': 'lt'
+        },
+
+    ],
+    'params': [
+        {
+            'keyword': '轴段1-半径',
+            'type': 'face',
+            'n1': 1,
+            'param': 'radius',
+            'visible': True
+        },
+        {
+            'keyword': '轴段2-半径',
+            'type': 'face',
+            'n1': 3,
+            'param': 'radius',
+            'visible': True
+        },
+        {
+            'keyword': '轴段3-半径',
+            'type': 'face',
+            'n1': 5,
+            'param': 'radius',
+            'visible': True
+        },
+        {
+            'keyword': '圆心01',
+            'type': 'edge',
+            'n1': 0,
+            'n2': 1,
+            'param': 'origin',
+            'visible': False
+        },
+        {
+            'keyword': '圆心12',
+            'type': 'edge',
+            'n1': 1,
+            'n2': 2,
+            'param': 'origin',
+            'visible': False
+        },
+        {
+            'keyword': '圆心23',
+            'type': 'edge',
+            'n1': 2,
+            'n2': 3,
+            'param': 'origin',
+            'visible': False
+        },
+        {
+            'keyword': '圆心34',
+            'type': 'edge',
+            'n1': 3,
+            'n2': 4,
+            'param': 'origin',
+            'visible': False
+        },
+        {
+            'keyword': '圆心45',
+            'type': 'edge',
+            'n1': 4,
+            'n2': 5,
+            'param': 'origin',
+            'visible': False
+        },
+        {
+            'keyword': '圆心56',
+            'type': 'edge',
+            'n1': 5,
+            'n2': 6,
+            'param': 'origin',
+            'visible': False
+        },
+        {
+            'keyword': '轴段1-长度',
+            'type': 'cal',
+            'p1': '圆心01',
+            'p2': '圆心12',
+            'func': 'dist',
+            'visible': True
+        },
+        {
+            'keyword': '轴段2-长度',
+            'type': 'cal',
+            'p1': '圆心23',
+            'p2': '圆心34',
+            'func': 'dist',
+            'visible': True
+        },
+        {
+            'keyword': '轴段3-长度',
+            'type': 'cal',
+            'p1': '圆心45',
+            'p2': '圆心56',
+            'func': 'dist',
+            'visible': True
+        },
+        {
+            'keyword': '轴段1-深度',
+            'type': 'cal',
+            'p1': '轴段2-半径',
+            'p2': '轴段1-半径',
+            'func': 'sub',
+            'visible': True
+        },
+        {
+            'keyword': '轴段3-深度',
+            'type': 'cal',
+            'p1': '轴段2-半径',
+            'p2': '轴段3-半径',
+            'func': 'sub',
+            'visible': True
+        },
+    ],
+    'parts': [
+        {
+            'name': '轴段1',
+            'faces': [1]
+        },
+        {
+            'name': '轴段2',
+            'faces': [2, 3, 4]
+        },
+        {
+            'name': '轴段3',
+            'faces': [5]
+        },
+    ]
+}
 
 @app.route('/get_image/<filename>')
 def get_image(filename):
@@ -190,8 +390,8 @@ def model_list():
     page = page + 1
     min_page = max(page - 10, 1)
     max_page = min(min_page + 20, page_num + 1)
-    return render_template('model_list.html', tt="特征匹配模型列表", session=session, table_data=data,
-                        page=page, page_num=page_num, min_page = min_page, max_page = max_page, groups=groups)
+    return render_template('matcher_list.html', tt="特征匹配模型列表", session=session, table_data=data,
+                           page=page, page_num=page_num, min_page = min_page, max_page = max_page, groups=groups)
 
 @app.route('/joint_delete')
 def joint_delete():
@@ -200,9 +400,6 @@ def joint_delete():
         return "删除成功"
     else:
         return "删除失败"
-
-
-
 
 @app.route('/body_view')
 def body_view():
@@ -233,6 +430,34 @@ def body_view():
 
     return render_template('body_view.html', tt="零部件查看", session=session, body=body[0],
                            faces=faces, features = features, body_id=body_id, max=[maxx, maxy, maxz], min=[minx, miny, minz])
+
+@app.route('/modal_edit')
+def modal_edit():
+    modal_id = request.args.get("modal_id")
+    if modal_id is None or modal_id == '':
+        matcher = {
+        '_id':'',
+        'name': '',
+        'nodes': [],
+        'edges': [],
+        'comparisons': [],
+        'params': [],
+        'parts': []
+    }
+    else:
+        matcher = select_step_matcher(modal_id)
+
+    return render_template('modal_edit.html', tt="匹配规则编辑", session=session, matcher = matcher)
+
+
+
+@app.route('/insert_modal', methods=['POST'])
+def insert_modal():
+    id = request.form.get('id')  # 从前端获取数据
+    matcher = request.form.get('matcher')  # 从前端获取数据
+    update_step_matcher(id, json.loads(matcher))
+    response_data = {'message': 'ok'}  # 处理后的数据
+    return jsonify(response_data)
 
 @app.route('/update_step_data', methods=['POST'])
 def get_data():

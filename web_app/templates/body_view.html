@@ -23,6 +23,8 @@
             const scene = new BABYLON.Scene(engine);
             const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 10, BABYLON.Vector3.Zero(), scene);
             camera.attachControl(canvas, true);
+            {#camera.wheelPrecision = 5; // 默认值通常为 100，调小此值#}
+            camera.wheelDeltaPercentage = 0.1;
             const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
             const minimumWorld = new BABYLON.Vector3({{ min[0] }}, {{ min[1] }}, {{ min[2] }}); // 边界框的最小点
             const maximumWorld = new BABYLON.Vector3({{ max[0] }}, {{ max[1] }}, {{ max[2] }});
@@ -155,7 +157,7 @@
                 });
                 // 添加多个按钮到左侧面板
                 for (let i = 0; i < features.length; i++) {
-                    featuresName = features[i].name;
+                    const featuresName = features[i].name;
                     for (let j = 0; j < features[i].list.length; j++) {
                         const feature = features[i].list[j];
                         const button = BABYLON.GUI.Button.CreateSimpleButton("feature" + i + "," + j, featuresName + "-" + j);
@@ -430,19 +432,6 @@
             textBlock.fontSize = 24; // 字体大小
             textBlock.height = "50px"
             rect1.addControl(textBlock);
-
-            for(let i = 0; i<param.length;i++){
-                const prm = param[i]
-                const lineBlock = new BABYLON.GUI.TextBlock();
-                lineBlock.text = prm.name + ": " + prm.value;
-                lineBlock.width = "400px";
-                lineBlock.color = "white"; // 文本颜色
-                lineBlock.fontSize = 16; // 字体大小
-                lineBlock.textWrapping = true;
-                lineBlock.resizeToFit = true
-                lineBlock.textHorizontalAlignment = "left"
-                rect1.addControl(lineBlock);
-            }
 
             const comment = new BABYLON.GUI.TextBlock();
             comment.text = "注释: " + note;

@@ -33,7 +33,7 @@ def get_parser():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=2,
+        default=1,
         help="Number of samples in a batch."
     )
     parser.add_argument(

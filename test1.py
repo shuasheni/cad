@@ -1,24 +1,20 @@
 import networkx as nx
-from OCC.Core.STEPControl import STEPControl_Reader
-from OCC.Extend.TopologyUtils import TopologyExplorer
+from occwl.entity_mapper import EntityMapper
+from occwl.io import load_step
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
 from OCC.Core.GeomAbs import *
 
 # 加载文件
 file_path = f"C:\\Users\\40896\\Desktop\\data\\joint\\13.step"
-
-step_reader = STEPControl_Reader()
-status = step_reader.ReadFile(file_path)
-
-step_reader.TransferRoots()
-shape = step_reader.Shape()
-solid = TopologyExplorer(shape)
+solid = load_step(file_path)[0]
+mapper = EntityMapper(solid)
 
 # 构建图结构
 graph = nx.Graph()
-for face_idx, face in enumerate(solid.faces()):
+for face in solid.faces():
+    face_idx = mapper.face_index(face)
     graph.add_node(face_idx)
-    surf = BRepAdaptor_Surface(face)
+    surf = BRepAdaptor_Surface(face.topods_shape())
     surf_type = surf.GetType()
     if surf_type == GeomAbs_Plane:
         graph.nodes[face_idx]['type'] = "plain"

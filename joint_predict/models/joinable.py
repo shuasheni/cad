@@ -9,6 +9,9 @@ from torchvision.ops.focal_loss import sigmoid_focal_loss
 
 from joint_predict.utils import metrics
 
+from torch_geometric.nn import GCNConv
+
+
 
 def mlp(inp_dim, hidden_dim, out_dim, num_layers=1, batch_norm=False):
     assert num_layers >= 1
@@ -64,6 +67,175 @@ class EdgeDotProductMPN(nn.Module):
         x_dst = x[dst, :]
         return (x_src * x_dst).sum(-1)
 
+
+class InnerProductDecoderWithNegativeSampling(nn.Module):
+    """
+    内积解码器 + 负采样，用于高效计算正负样本的边logits。
+    """
+
+    def __init__(self, num_neg_samples=5):
+        super().__init__()
+        self.num_neg_samples = num_neg_samples  # 每个正样本对应的负样本数
+
+    def forward(self, x, edge_index):
+        """
+        输入:
+        - x: 合并后的节点特征 [N_total, D]
+        - edge_index: 正样本边索引 [2, E_pos]
+        输出:
+        - logits: 正负样本边的logits [E_pos + E_neg]
+        - labels: 正负样本标签 [E_pos + E_neg] (1: 正样本, 0: 负样本)
+        """
+        # ---------------------- 正样本计算 ----------------------
+        src_pos, dst_pos = edge_index[0], edge_index[1]
+        x_src_pos = x[src_pos, :]  # [E_pos, D]
+        x_dst_pos = x[dst_pos, :]  # [E_pos, D]
+        pos_logits = (x_src_pos * x_dst_pos).sum(-1)  # 正样本logits [E_pos]
+
+        # ---------------------- 负采样 ----------------------
+        num_pos = src_pos.size(0)
+        num_neg = num_pos * self.num_neg_samples  # 负样本总数
+
+        # 随机生成负样本的源节点和目标节点索引（避免与正样本重复）
+        num_nodes = x.size(0)
+        neg_src = torch.randint(0, num_nodes, (num_neg,), device=x.device)  # [E_neg]
+        neg_dst = torch.randint(0, num_nodes, (num_neg,), device=x.device)  # [E_neg]
+
+        # 计算负样本logits
+        x_neg_src = x[neg_src, :]  # [E_neg, D]
+        x_neg_dst = x[neg_dst, :]  # [E_neg, D]
+        neg_logits = (x_neg_src * x_neg_dst).sum(-1)  # [E_neg]
+
+        # ---------------------- 合并结果 ----------------------
+        logits = torch.cat([pos_logits, neg_logits], dim=0)  # [E_pos + E_neg]
+        labels = torch.cat([
+            torch.ones_like(pos_logits),  # 正样本标签为1
+            torch.zeros_like(neg_logits)  # 负样本标签为0
+        ], dim=0)
+
+        return logits, labels  # 返回logits和标签
+
+class GraphMatchingMPN(nn.Module):
+    """
+    图匹配网络（Graph Matching Network）用于链接预测，通过跨图注意力增强节点特征。
+    """
+
+    def __init__(self, hidden_dim, heads=4, batch_norm=False):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.heads = heads
+
+        # 跨图多头注意力层
+        self.attn = nn.MultiheadAttention(hidden_dim, heads)
+
+        # 特征融合MLP
+        self.mlp = nn.Sequential(
+            nn.Linear(2 * hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim) if batch_norm else nn.Identity(),
+            nn.ELU(),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
+
+        # 可选的相似度计算方式（双线性变换）
+        self.W = nn.Parameter(torch.randn(hidden_dim, hidden_dim))
+
+    def forward(self, x, edge_index):
+        """
+        输入:
+        - x: 合并后的节点特征 [N_total, D]
+        - edge_index: 边索引 [2, E]，其中 src 属于图1，dst 属于图2
+        输出:
+        - logits: 边存在概率 [E]
+        """
+        src, dst = edge_index[0], edge_index[1]
+        x_src = x[src, :]  # 图1的节点特征 [E, D]
+        x_dst = x[dst, :]  # 图2的节点特征 [E, D]
+
+        # 跨图注意力（Query=src, Key/Value=dst）
+        x_src_seq = x_src.unsqueeze(0)  # [1, E, D]
+        x_dst_seq = x_dst.unsqueeze(0)  # [1, E, D]
+        attn_out, _ = self.attn(x_src_seq, x_dst_seq, x_dst_seq)  # [1, E, D]
+        attn_out = attn_out.squeeze(0)  # [E, D]
+
+        # 特征融合：拼接原始特征与注意力输出
+        combined = torch.cat([x_src, attn_out], dim=-1)  # [E, 2D]
+        enhanced_src = self.mlp(combined)  # [E, D]
+
+        # 双线性变换计算相似度
+        logits = (enhanced_src @ self.W @ x_dst.T).diag()  # [E]
+        return logits
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch_geometric.nn import GCNConv
+
+
+class GCNEdgePredictor(nn.Module):
+    """
+    基于图卷积网络（GCN）的边预测模型，输入输出格式与 EdgeMLPMPN/EdgeDotProductMPN 兼容。
+    包含以下步骤：
+    1. 多层 GCN 进行节点嵌入
+    2. 可选的点积或 MLP 计算边 logits
+    """
+
+    def __init__(self, in_channels, hidden_channels, out_channels=1,
+                 num_layers=2, method="dot_product", batch_norm=False):
+        super().__init__()
+        self.method = method
+        self.num_layers = num_layers
+
+        # ---------------------- GCN 消息传递层 ----------------------
+        self.convs = nn.ModuleList()
+        for i in range(num_layers):
+            if i == 0:
+                self.convs.append(GCNConv(in_channels, hidden_channels))
+            else:
+                self.convs.append(GCNConv(hidden_channels, hidden_channels))
+
+        # ---------------------- 边 logits 计算层 ----------------------
+        if method == "dot_product":
+            # 直接使用点积（无需参数）
+            self.edge_decoder = lambda x_src, x_dst: (x_src * x_dst).sum(dim=-1)
+        elif method == "mlp":
+            # 使用 MLP 计算 logits
+            self.edge_decoder = nn.Sequential(
+                nn.Linear(2 * hidden_channels, hidden_channels),
+                nn.BatchNorm1d(hidden_channels) if batch_norm else nn.Identity(),
+                nn.ReLU(),
+                nn.Linear(hidden_channels, out_channels)
+            )
+        else:
+            raise ValueError(f"Unsupported method: {method}")
+
+    def forward(self, x, edge_index):
+        """
+        输入:
+        - x: 节点特征矩阵 [num_nodes, in_channels]
+        - edge_index: 边索引 [2, num_edges]
+        输出:
+        - logits: 边存在概率 [num_edges]
+        """
+        # ---------------------- GCN 消息传递 ----------------------
+        h = x
+        for i in range(self.num_layers):
+            h = self.convs[i](h, edge_index)
+            h = F.relu(h)
+            h = F.dropout(h, p=0.5, training=self.training)
+
+        # ---------------------- 边 logits 计算 ----------------------
+        src, dst = edge_index[0], edge_index[1]
+        x_src = h[src]  # [num_edges, hidden_channels]
+        x_dst = h[dst]  # [num_edges, hidden_channels]
+
+        if self.method == "dot_product":
+            logits = (x_src * x_dst).sum(dim=-1)  # [num_edges]
+        elif self.method == "mlp":
+            x_pair = torch.cat([x_src, x_dst], dim=-1)  # [num_edges, 2*hidden_channels]
+            logits = self.edge_decoder(x_pair).squeeze(-1)  # [num_edges]
+
+        return logits
 
 class EdgeMLPMPN(nn.Module):
     """
@@ -124,22 +296,21 @@ class PostJointNet(nn.Module):
         if self.reduction is None:
             self.reduction = "sum"
         self.method = method
-        if method not in ("mm", "mlp"):
-            raise NotImplemented("Expected 'method' to be 'mm' or 'mlp'")
+        if method not in ("mm", "mlp", "gm", "gcn"):
+            raise NotImplemented("Expected 'method' to be 'mm' or 'mlp' or 'gm'")
         self.dropout = nn.Dropout(dropout)
 
         if self.method == "mm":
             self.mpn = EdgeDotProductMPN()
         elif self.method == "mlp":
             self.mpn = EdgeMLPMPN(hidden_dim, hidden_dim, batch_norm=batch_norm)
+        elif method == "gm":
+            self.mpn = GraphMatchingMPN(hidden_dim, heads=4, batch_norm=batch_norm)
+        elif method == "ipn":
+            self.mpn = InnerProductDecoderWithNegativeSampling(num_neg_samples=5)
+        elif method == "gcn":
+            self.mpn = GCNEdgePredictor(in_channels=64, hidden_channels=256, num_layers=3, method="mlp", batch_norm=True)
 
-        # for m in self.modules():
-        #     if isinstance(m, (nn.Linear, nn.Conv2d)):
-        #         torch.nn.init.xavier_uniform_(m.weight)
-        #         try:
-        #             m.bias.data.fill_(0.00)
-        #         except Exception as ex:
-        #             pass
 
     def forward(self, x1, x2, jg):
         x1 = self.dropout(x1)
@@ -384,6 +555,9 @@ class GAT(torch.nn.Module):
         elif mpn == "gatv2":
             self.conv1 = GATv2Conv(hidden_dim, hidden_dim // 8, heads=8, dropout=dropout)
             self.conv2 = GATv2Conv(hidden_dim, hidden_dim // 8, heads=8, dropout=dropout)
+        elif mpn == "gcn":
+            self.conv1 = GCNConv(hidden_dim, hidden_dim)
+            self.conv2 = GCNConv(hidden_dim, hidden_dim)
         else:
             raise Exception("Unknown mpn argument")
         self.batch_norm = batch_norm
@@ -401,6 +575,17 @@ class GAT(torch.nn.Module):
         x = self.conv2(x, edges_idx)
         return x
 
+class GCN_MPN(nn.Module):
+    def __init__(self, hidden_dim, dropout):
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+    def forward(self, x, edge_index):
+        x = self.dropout(x)
+        x = self.conv1(x, edge_index)
+        x = F.elu(x)
+        x = self.dropout(x)
+        x = self.conv2(x, edge_index)
+        return x
 
 class JoinABLe(nn.Module):
     def __init__(

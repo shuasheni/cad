@@ -38,14 +38,14 @@ def get_parser():
     parser.add_argument(
         "--mpn",
         type=str,
-        choices=("gat", "gatv2"),
+        choices=("gat", "gatv2", "gcn"),
         default="gatv2",
         help="Message passing network to use."
     )
     parser.add_argument(
         "--post_net",
         type=str,
-        choices=("mm", "mlp"),
+        choices=("mm", "mlp", "gm", "gcn"),
         default="mlp",
         help="Post network method."
     )

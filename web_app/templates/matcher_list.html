@@ -1,0 +1,114 @@
+{% include 'header.html' %}
+
+<div class="container  content-container">
+    <div class="container" style="margin-top: 10px;padding: 25px">
+        <form action="/model_list" method="post">
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="model_id">规则id</label>
+                    <input type="text" class="form-control" name="body_id" id="body_id">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="name">规则名称</label>
+                    <input type="text" class="form-control" name="name" id="name">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="group">分组</label>
+                    <select id="page_size" name="group" class="form-control">
+                        <option selected value="">all</option>
+                        {% for row in groups %}
+                        <option value="{{ row.group_id }}">{{ row.group_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-2">
+                    <label>操作</label>
+                    <button type="submit" class="btn btn-primary form-control">查询</button>
+                </div>
+
+                <div class="form-group col-md-2">
+                    <label>-</label>
+                    <button class="btn btn-secondary form-control" type="button" data-toggle="modal"
+                            data-target="#addGroupModal">增加分组
+                    </button>
+                </div>
+
+                <div class="form-group col-md-2">
+                    <label>-</label><a href="/modal_edit?modal_id=">
+                    <button class="btn btn-secondary form-control" type="button" data-toggle="modal"
+                            data-target="#addModelMoadal">
+                        增加规则
+                    </button></a>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="container">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover table-bordered">
+            <thead class="thead-dark">
+              <tr>
+                <th scope="col">id</th>
+                <th scope="col">名称</th>
+                <th scope="col">分组</th>
+                <th scope="col">描述</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for data in table_data %}
+              <tr>
+                <th scope="row">{{ data[0] }}</th>
+                <td>{{ data[1] }}</td>
+                <td>{{ data[2] }}</td>
+                <td class="text-muted">{{ data[3] }}</td>
+                <td style="text-align: center; width: 120px">
+                    <button class="btn btn-sm btn-primary" onclick="editModal({{ data[0] }})">
+                                编辑
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteModal({{ data[0] }})">
+                                删除
+                    </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+    </div>
+
+
+</div>
+
+<script>
+
+
+
+l1 = document.getElementById("main_page");
+    l2 = document.getElementById("joint_page");
+    l3 = document.getElementById("body_page");
+    l4 = document.getElementById("model_page");
+    l4.classList.add("active")
+    l2.classList.remove("active")
+    l1.classList.remove("active")
+    l3.classList.remove("active")
+
+    function openPage(u) {
+        window.open(u, '_blank', '');
+    }
+
+
+    function editModal(id) {
+
+    }
+
+    function deleteModal(param) {
+
+    }
+
+</script>
+{% include 'footer.html' %}

@@ -153,16 +153,16 @@ def select_model(db=None,cursor=None, model_id = None, name = None, page_size = 
     total_count = cursor.fetchone()[0]
     page_num = (total_count + page_size - 1) // page_size
 
-    sql = f"select model_id,model_name,group_name from model NATURAL JOIN group_table LIMIT {page_size} OFFSET {page*page_size};"
+    sql = f"select model_id,model_name,group_name,note from model NATURAL JOIN group_table LIMIT {page_size} OFFSET {page*page_size};"
 
     if model_id is not None:
-        sql = f"select model_id,model_name,group_name from model NATURAL JOIN groups where model_id = '{model_id}';"
+        sql = f"select model_id,model_name,group_name,note from model NATURAL JOIN groups where model_id = '{model_id}';"
         page_num = 1
     elif name is not None:
-        sql = f"select model_id,model_name,group_name from model NATURAL JOIN groups where model_name = '{name}';"
+        sql = f"select model_id,model_name,group_name,note from model NATURAL JOIN groups where model_name = '{name}';"
         page_num = 1
     elif group is not None:
-        sql = f"select model_id,model_name,group_name from model NATURAL JOIN groups where group_name = '{group}';"
+        sql = f"select model_id,model_name,group_name,note from model NATURAL JOIN groups where group_name = '{group}';"
         page_num = 1
 
     print(sql)

@@ -6,7 +6,7 @@ from OCC.Core.GeomAbs import (GeomAbs_BSplineSurface,
                               GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane,
                               GeomAbs_Sphere, GeomAbs_Torus)
 
-from cad.feature_matching import match_features
+from cad.step_graph_match import graph_match
 from db.mongo_db import insert_step_parse, select_step_parse, update_step_parse
 
 surface_types = [
@@ -157,9 +157,11 @@ def step_parse(body_id):
     faces, edges, features = select_step_parse(body_id)
     if faces is None:
         fn = f"C:\\Users\\40896\\Desktop\\data\\joint\\{body_id}.step"
+        solids = load_step(fn)
+        assert len(solids) == 1, "step_parse error"
         solid = load_step(fn)[0]
         faces, edges = parse_entities(solid)
-        features = match_features(solid)
+        features = graph_match(solid)
         insert_step_parse(body_id, faces, edges, features)
     return faces, edges, features
 
